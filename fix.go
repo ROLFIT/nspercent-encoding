@@ -30,7 +30,8 @@ func unhex(c byte) byte {
 }
 
 func FixNonStandardPercentEncoding(s string) string {
-	r := make([]byte, len(s))
+	r := make([]byte, len(s)*4)
+	ri := 0
 	for i := 0; i < len(s); {
 		switch s[i] {
 		case '%':
@@ -45,32 +46,74 @@ func FixNonStandardPercentEncoding(s string) string {
 					v = v<<4 | rune(unhex(t[3]))
 
 					b := make([]byte, utf8.RuneLen(v))
-					if utf8.EncodeRune(b, v) != 2 {
-						// Оставляем без изменений. Пусть разбирается url.QueryUnescape
-						r[i] = s[i]
-						i++
-					} else {
-						r[i] = '%'
-						r[i+1] = "0123456789ABCDEF"[b[0]>>4]
-						r[i+2] = "0123456789ABCDEF"[b[0]&15]
-						r[i+3] = '%'
-						r[i+4] = "0123456789ABCDEF"[b[1]>>4]
-						r[i+5] = "0123456789ABCDEF"[b[1]&15]
-						i += 6
+					switch utf8.EncodeRune(b, v) {
+					case 1:
+						{
+							r[ri] = s[i]
+							i++
+							ri++
+						}
+					case 2:
+						{
+							r[ri] = '%'
+							r[ri+1] = "0123456789ABCDEF"[b[0]>>4]
+							r[ri+2] = "0123456789ABCDEF"[b[0]&15]
+							r[ri+3] = '%'
+							r[ri+4] = "0123456789ABCDEF"[b[1]>>4]
+							r[ri+5] = "0123456789ABCDEF"[b[1]&15]
+							i += 6
+							ri += 6
+
+						}
+					case 3:
+						{
+							r[ri] = '%'
+							r[ri+1] = "0123456789ABCDEF"[b[0]>>4]
+							r[ri+2] = "0123456789ABCDEF"[b[0]&15]
+							r[ri+3] = '%'
+							r[ri+4] = "0123456789ABCDEF"[b[1]>>4]
+							r[ri+5] = "0123456789ABCDEF"[b[1]&15]
+							r[ri+6] = '%'
+							r[ri+7] = "0123456789ABCDEF"[b[2]>>4]
+							r[ri+8] = "0123456789ABCDEF"[b[2]&15]
+
+							i += 6
+							ri += 9
+						}
+					case 4:
+						{
+							r[ri] = '%'
+							r[ri+1] = "0123456789ABCDEF"[b[0]>>4]
+							r[ri+2] = "0123456789ABCDEF"[b[0]&15]
+							r[ri+3] = '%'
+							r[ri+4] = "0123456789ABCDEF"[b[1]>>4]
+							r[ri+5] = "0123456789ABCDEF"[b[1]&15]
+							r[ri+6] = '%'
+							r[ri+7] = "0123456789ABCDEF"[b[2]>>4]
+							r[ri+8] = "0123456789ABCDEF"[b[2]&15]
+							r[ri+9] = '%'
+							r[ri+10] = "0123456789ABCDEF"[b[3]>>4]
+							r[ri+11] = "0123456789ABCDEF"[b[3]&15]
+							i += 6
+							ri += 12
+						}
 					}
 				} else {
-					r[i] = s[i]
+					r[ri] = s[i]
 					i++
+					ri++
 				}
 
 			} else {
-				r[i] = s[i]
+				r[ri] = s[i]
 				i++
+				ri++
 			}
 		default:
-			r[i] = s[i]
+			r[ri] = s[i]
 			i++
+			ri++
 		}
 	}
-	return string(r)
+	return string(r[:ri])
 }
